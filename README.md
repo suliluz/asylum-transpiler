@@ -26,6 +26,18 @@ Unlike standard high-level languages, Asylum embraces the absolute absurdity of 
 - **High-Resolution Timer**: Access precise millisecond-level UNIX timestamps during runtime for benchmarking and game loops via `sys_millis()`.
 - **No Python Runtime**: Applications built with `asyc build` are entirely standalone, self-contained native Linux binaries.
 
+### Implementation Roadmap
+- [x] Basic Control Flow (`if`, `while`, `for`, `try/catch`)
+- [x] Arithmetic & PEMDAS Evaluation
+- [x] Hardware Interrupts & OS File I/O
+- [x] TCP Sockets & Networking
+- [x] True Pointers & Dynamic Memory (`malloc`)
+- [x] Static JSON Structs (Compile-time offsets)
+- [x] First-Class Callbacks & Dynamic Dispatch
+- [x] High-Resolution `sys_millis` System Timer
+- [ ] Floating-point precision (IEEE 754 implemented via loops)
+- [ ] Multithreading capabilities
+
 ---
 
 ## 🛠️ Writing Apps in Asylum
@@ -251,3 +263,12 @@ Another tricky bug involved PEMDAS and chained math evaluations. The compiler in
 Furthermore, earlier implementations of `pow` and `mul` incorrectly copied source values into their destination registers instead of accumulating them (erasing the running product on every loop iteration). 
 
 **The Fix**: I rewrote the evaluator loop to sequentially fold over all chained AST children left-to-right. I also corrected the Brainfuck tape manipulation inside the multiplication and exponentiation loops to properly accumulate mathematical results using temporary registers, finally stabilizing complex algebraic equations natively in Brainfuck.
+
+### Feature Implementation: Callbacks & Sys Timer
+During our latest sprint, we architected and successfully implemented high-performance system timers and functional callback dispatch without any dynamic jumps:
+- [x] Fix `syscall` missing `#` interrupt regression in `generator.py`
+- [x] Add `SYS_MILLIS` command to C-level `src/bfc.c`
+- [x] Expose `sys_millis()` via `std/time.asy`
+- [x] Assign unique numerical IDs to all user-defined functions
+- [x] Implement dynamic dispatch and Function Reference resolving in `visit_func_call`
+- [x] Write integration tests (`examples/test_timer.asy` and `examples/test_callback.asy`)
