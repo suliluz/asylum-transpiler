@@ -166,6 +166,16 @@ Use at your own risk!
 
 ## 📖 Developer Journal
 
+### Scope Memory Leaks and Tape Collisions
+Early in development, we ran into insidious memory corruption bugs where nested function calls would silently overwrite active variables. The issue traced back to how the Memory Manager tracked the `next_free` pointer when pushing and popping scopes. When a scope was popped, the compiler was incorrectly restoring the allocator's high-water mark, leading to overlapping variable allocations on the tape. We fixed this by deeply refactoring the scope tree to correctly maintain isolated memory bounds and properly garbage collect temporary registers across scope boundaries.
+
+### Literal Array Access Optimization
+Accessing array elements dynamically (`arr[i]`) in Brainfuck inherently requires expensive tape loops to traverse memory by an arbitrary offset. However, we realized the transpiler was naively generating these massive, expensive dynamic lookup loops even for static literal accesses like `arr[3]`. We introduced an optimization pass in the generator so that if the index expression is a raw number literal, the transpiler skips the looping logic entirely and statically calculates the exact memory offset at compile-time, saving thousands of cycles.
+
+### Hash Map Integrity & Collision Chaining
+Building a standard library Hash Map (`std/map.asy`) directly in Brainfuck using a `djb2` string hashing algorithm was a monumental task. The biggest challenge was ensuring data integrity under heavy loads; early iterations would blindly overwrite keys if two strings resulted in the same hash bucket. We had to architect a robust, tape-native collision chaining mechanism that dynamically allocates linked-list nodes for bucket collisions, ensuring that large-scale dictionary operations remain perfectly intact on a 1MB linear tape.
+
+
 ### The $O(N)$ Tape Movement Bloat
 One of the most challenging optimization hurdles we faced during development was an architectural flaw in how the transpiler handled exceptions (`try/catch` and error bubbling). In the initial design, the error flag (`__err_flag`) was statically hardcoded to memory address `0x01` on the tape. 
 
