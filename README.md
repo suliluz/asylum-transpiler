@@ -162,3 +162,24 @@ The entire language is built on top of a Turing Tarpit and uses aggressive memor
 There is no semantic analysis pass, no type checking, and all integers are strictly 8-bit unsigned bytes (0-255). Expect aggressive overflow wrapping, 32-bit pointers split manually across 4 individual bytes, and highly volatile memory states if you deviate from the standard library.
 
 Use at your own risk!
+---
+
+## 📖 Developer Journal
+
+### The $O(N)$ Tape Movement Bloat
+One of the most challenging optimization hurdles we faced during development was an architectural flaw in how the transpiler handled exceptions (`try/catch` and error bubbling). In the initial design, the error flag (`__err_flag`) was statically hardcoded to memory address `0x01` on the tape. 
+
+Because active memory scopes generally reside upwards of address `1024`, the Brainfuck generator was forcefully copying and checking the value of `0x01` before executing *every single statement* within a block to ensure an error hadn't been thrown. This meant the Brainfuck memory head was endlessly traversing 1000+ addresses left and right thousands of times per function! 
+
+For heavily nested logic (like standard library hash maps), this caused the transpiled Brainfuck file size to explode to **5.3MB** and slowed GCC native compilation to a crawl.
+
+**The Fix**: I overhauled the memory management system to use dynamic, block-local `$O(1)$` error bubbling. Instead of checking a global register, functions now allocate their own temporary error flags alongside their local variables. When a function completes, it propagates its local error state directly back up to its caller's local scope with minimal tape movement. 
+
+This optimization successfully dropped the transpiled output size of our heaviest stress test by **80%** (down to 1.1MB), achieving near-instant execution times and exponentially faster GCC compilations.
+
+### The Chained AST Operator Bug
+Another tricky bug involved PEMDAS and chained math evaluations. The compiler initially struggled with expressions like `a + b * c ^ 3 - a / c`. Because the Lark parser flattened chained AST operators (like `add_expr`) into a single list of children, the backend evaluator—which naively expected only 3 children per node—was silently ignoring trailing operations (completely dropping the `- a / c` division). 
+
+Furthermore, earlier implementations of `pow` and `mul` incorrectly copied source values into their destination registers instead of accumulating them (erasing the running product on every loop iteration). 
+
+**The Fix**: I rewrote the evaluator loop to sequentially fold over all chained AST children left-to-right. I also corrected the Brainfuck tape manipulation inside the multiplication and exponentiation loops to properly accumulate mathematical results using temporary registers, finally stabilizing complex algebraic equations natively in Brainfuck.
