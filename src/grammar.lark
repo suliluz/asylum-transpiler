@@ -10,6 +10,10 @@ start: statement*
           | expr_stmt
           | return_stmt
           | block
+          | "break" ";" -> break_stmt
+          | "continue" ";" -> continue_stmt
+          | "throw" expr ";" -> throw_stmt
+          | "try" block "catch" "(" CNAME ")" block -> try_stmt
 
 import_stmt: "import" ESCAPED_STRING ";"
 
@@ -60,7 +64,10 @@ COMP_OP: "==" | "!=" | "<" | ">"
 ?equality: add_expr (COMP_OP add_expr)*
 ADD_OP: "+" | "-"
 ?add_expr: mul_expr (ADD_OP mul_expr)*
-?mul_expr: atom
+MUL_OP: "*" | "/" | "%"
+?mul_expr: pow_expr (MUL_OP pow_expr)*
+POW_OP: "^"
+?pow_expr: atom (POW_OP atom)*
 
 json_pair: ESCAPED_STRING ":" expr
 json_obj: "{" (json_pair ("," json_pair)*)? "}"

@@ -6,6 +6,7 @@ class Generator:
         self.mem = MemoryManager()
         self.ptr = 1024
         self.functions = {}
+        self.loop_stack = []
         
     def _add(self, ops):
         self.code.append(ops)
@@ -388,6 +389,185 @@ class Generator:
             self.move_to(temp)
             self._add(']')
             self.mem.free_temp(temp)
+        elif node.data == 'mul_expr':
+            left = node.children[0]
+            op = node.children[1].value
+            right = node.children[2]
+            
+            self.eval_expr(left, dest_addr)
+            temp = self.mem.alloc_temp()
+            self.eval_expr(right, temp)
+            
+            if op == '*':
+                res = self.mem.alloc_temp()
+                self.clear(res)
+                a_copy = self.mem.alloc_temp()
+                self.clear(a_copy)
+                
+                self.move_to(dest_addr)
+                self._add('[-')
+                self.move_to(a_copy)
+                self._add('+')
+                self.move_to(dest_addr)
+                self._add(']')
+                
+                self.move_to(a_copy)
+                self._add('[-')
+                self.copy(temp, res)
+                self.move_to(a_copy)
+                self._add(']')
+                
+                self.copy(res, dest_addr)
+                self.clear(res)
+                self.mem.free_temp(res)
+                self.mem.free_temp(a_copy)
+            elif op in ('/', '%'):
+                is_zero = self.mem.alloc_temp()
+                self.set_val(is_zero, 1)
+                t_copy = self.mem.alloc_temp()
+                self.copy(temp, t_copy)
+                self.move_to(t_copy)
+                self._add('[-')
+                self.clear(is_zero)
+                self.move_to(t_copy)
+                self._add(']')
+                self.mem.free_temp(t_copy)
+                
+                self.move_to(is_zero)
+                self._add('[')
+                self.set_val(1, 1)
+                self.set_val(2, 1)
+                err_msg = "Math Error: Divide by Zero\n"
+                for c in err_msg:
+                    char_val = ord(c)
+                    t_char = self.mem.alloc_temp()
+                    self.set_val(t_char, char_val)
+                    self.move_to(t_char)
+                    self._add('.')
+                    self.clear(t_char)
+                    self.mem.free_temp(t_char)
+                self.clear(is_zero)
+                self._add(']')
+                self.mem.free_temp(is_zero)
+                
+                res = self.mem.alloc_temp()
+                self.clear(res)
+                rem = self.mem.alloc_temp()
+                self.clear(rem)
+                x_copy = self.mem.alloc_temp()
+                self.clear(x_copy)
+                
+                self.move_to(dest_addr)
+                self._add('[-')
+                self.move_to(x_copy)
+                self._add('+')
+                self.move_to(dest_addr)
+                self._add(']')
+                
+                self.move_to(x_copy)
+                self._add('[-')
+                self.move_to(rem)
+                self._add('+')
+                
+                t1 = self.mem.alloc_temp()
+                t2 = self.mem.alloc_temp()
+                self.copy(rem, t1)
+                
+                self.move_to(temp)
+                self._add('[-')
+                self.move_to(t1)
+                self._add('-')
+                self.move_to(t2)
+                self._add('+')
+                self.move_to(temp)
+                self._add(']')
+                
+                self.move_to(t2)
+                self._add('[-')
+                self.move_to(temp)
+                self._add('+')
+                self.move_to(t2)
+                self._add(']')
+                
+                is_eq = self.mem.alloc_temp()
+                self.set_val(is_eq, 1)
+                self.move_to(t1)
+                self._add('[-')
+                self.clear(is_eq)
+                self.move_to(t1)
+                self._add(']')
+                
+                self.move_to(is_eq)
+                self._add('[-')
+                self.move_to(res)
+                self._add('+')
+                self.clear(rem)
+                self.move_to(is_eq)
+                self._add(']')
+                
+                self.mem.free_temp(t1)
+                self.mem.free_temp(t2)
+                self.mem.free_temp(is_eq)
+                
+                self.move_to(x_copy)
+                self._add(']')
+                
+                if op == '/':
+                    self.copy(res, dest_addr)
+                else:
+                    self.copy(rem, dest_addr)
+                    
+                self.clear(res)
+                self.clear(rem)
+                self.clear(x_copy)
+                self.mem.free_temp(res)
+                self.mem.free_temp(rem)
+                self.mem.free_temp(x_copy)
+            self.mem.free_temp(temp)
+        elif node.data == 'pow_expr':
+            left = node.children[0]
+            op = node.children[1].value
+            right = node.children[2]
+            
+            temp_base = self.mem.alloc_temp()
+            self.eval_expr(left, temp_base)
+            temp_exp = self.mem.alloc_temp()
+            self.eval_expr(right, temp_exp)
+            
+            self.set_val(dest_addr, 1)
+            
+            self.move_to(temp_exp)
+            self._add('[-')
+            
+            res = self.mem.alloc_temp()
+            self.clear(res)
+            a_copy = self.mem.alloc_temp()
+            self.clear(a_copy)
+            
+            self.move_to(dest_addr)
+            self._add('[-')
+            self.move_to(a_copy)
+            self._add('+')
+            self.move_to(dest_addr)
+            self._add(']')
+            
+            self.move_to(a_copy)
+            self._add('[-')
+            self.copy(temp_base, res)
+            self.move_to(a_copy)
+            self._add(']')
+            
+            self.copy(res, dest_addr)
+            self.clear(res)
+            self.mem.free_temp(res)
+            self.mem.free_temp(a_copy)
+            
+            self.move_to(temp_exp)
+            self._add(']')
+            
+            self.clear(temp_base)
+            self.mem.free_temp(temp_base)
+            self.mem.free_temp(temp_exp)
         elif node.data == 'equality':
             left = node.children[0]
             op = node.children[1].value
@@ -449,7 +629,6 @@ class Generator:
                 if isinstance(addr, tuple):
                     addr = addr[0]
                 self.move_to(addr)
-                self._add('#')
                 self.copy(addr, dest_addr)
             elif func_name in self.functions:
                 func_node = self.functions[func_name]
@@ -523,7 +702,6 @@ class Generator:
                 if isinstance(addr, tuple):
                     addr = addr[0]
                 self.move_to(addr)
-                self._add('#')
             else:
                 t = self.mem.alloc_temp()
                 self.eval_expr(expr, t)
@@ -584,22 +762,34 @@ class Generator:
         self.move_to(cond_temp)
         self._add('[')
         
+        run_flag = self.mem.alloc_temp()
+        self.set_val(run_flag, 1)
+        self.loop_stack.append({'run_flag': run_flag, 'cond': cond_temp})
+        
         self.mem.push_scope()
         self.visit(block_node)
         self.mem.pop_scope()
         
+        self.loop_stack.pop()
+        self.clear(run_flag)
+        self.mem.free_temp(run_flag)
+        
+        # Only re-evaluate cond if it was not cleared by break
+        t_check = self.mem.alloc_temp()
+        self.copy(cond_temp, t_check)
+        self.move_to(t_check)
+        self._add('[')
+        self.clear(cond_temp)
         self.eval_expr(expr_node, cond_temp)
+        self.clear(t_check)
+        self._add(']')
+        self.mem.free_temp(t_check)
+        
         self.move_to(cond_temp)
         self._add(']')
         self.mem.free_temp(cond_temp)
 
     def visit_for_stmt(self, node):
-        # for_stmt: "for" "(" (var_decl | assignment)? expr ";" (assignment | inc_dec_stmt)? ")" block
-        # Children could be: [init, cond, iter, block] or [cond, iter, block] or [init, cond, block] or [cond, block]
-        # Let's dynamically find them by looking at data or assuming last is block, second to last could be iter...
-        # Actually it's better to check the node tree.
-        # Lark drops empty optionals, but let's be careful.
-        
         block = node.children[-1]
         
         # Determine components
@@ -633,23 +823,125 @@ class Generator:
         self.move_to(cond_temp)
         self._add('[')
         
+        run_flag = self.mem.alloc_temp()
+        self.set_val(run_flag, 1)
+        self.loop_stack.append({'run_flag': run_flag, 'cond': cond_temp})
+        
         self.mem.push_scope()
         self.visit(block)
         self.mem.pop_scope()
         
+        self.loop_stack.pop()
+        
+        # Only execute iter_node and re-eval if we didn't break
+        t_check = self.mem.alloc_temp()
+        self.copy(cond_temp, t_check)
+        self.move_to(t_check)
+        self._add('[')
+        
         if iter_node:
             self.visit(iter_node)
             
+        self.clear(cond_temp)
         self.eval_expr(cond_node, cond_temp)
+        
+        self.clear(t_check)
+        self._add(']')
+        self.mem.free_temp(t_check)
+        
+        self.clear(run_flag)
+        self.mem.free_temp(run_flag)
+        
         self.move_to(cond_temp)
         self._add(']')
         self.mem.free_temp(cond_temp)
         
         self.mem.pop_scope()
 
+    def visit_break_stmt(self, node):
+        if not self.loop_stack:
+            raise Exception("Break outside loop")
+        ctx = self.loop_stack[-1]
+        self.clear(ctx['run_flag'])
+        self.clear(ctx['cond'])
+
+    def visit_continue_stmt(self, node):
+        if not self.loop_stack:
+            raise Exception("Continue outside loop")
+        ctx = self.loop_stack[-1]
+        self.clear(ctx['run_flag'])
+
+    def visit_throw_stmt(self, node):
+        expr = node.children[0]
+        err_code_temp = self.mem.alloc_temp()
+        self.eval_expr(expr, err_code_temp)
+        self.set_val(1, 1) # __err_flag
+        self.clear(2) # __err_code
+        self.copy(err_code_temp, 2)
+        self.clear(err_code_temp)
+        self.mem.free_temp(err_code_temp)
+
+    def visit_try_stmt(self, node):
+        try_block = node.children[0]
+        err_var_name = node.children[1].value
+        catch_block = node.children[2]
+
+        self.visit(try_block)
+
+        # Catch
+        err_check = self.mem.alloc_temp()
+        self.copy(1, err_check)
+        self.move_to(err_check)
+        self._add('[')
+        
+        self.clear(1) # Clear error flag
+        self.mem.push_scope()
+        err_var_addr = self.mem.alloc(err_var_name)
+        self.clear(err_var_addr)
+        self.copy(2, err_var_addr) # Copy error code
+        
+        self.visit(catch_block)
+        
+        self.mem.pop_scope()
+        
+        self.clear(err_check)
+        self._add(']')
+        self.mem.free_temp(err_check)
+
     def visit_block(self, node):
         for stmt in node.children:
+            not_err = self.mem.alloc_temp()
+            self.set_val(not_err, 1)
+            err_copy = self.mem.alloc_temp()
+            self.copy(1, err_copy)
+            self.move_to(err_copy)
+            self._add('[-')
+            self.clear(not_err)
+            self.move_to(err_copy)
+            self._add(']')
+            self.mem.free_temp(err_copy)
+            
+            run_flag_copy = None
+            if self.loop_stack:
+                run_flag_copy = self.mem.alloc_temp()
+                self.copy(self.loop_stack[-1]['run_flag'], run_flag_copy)
+            
+            self.move_to(not_err)
+            self._add('[')
+            if run_flag_copy:
+                self.move_to(run_flag_copy)
+                self._add('[')
+                
             self.visit(stmt)
+            
+            if run_flag_copy:
+                self.clear(run_flag_copy)
+                self._add(']')
+                self.mem.free_temp(run_flag_copy)
+                
+            self.clear(not_err)
+            self._add(']')
+            self.mem.free_temp(not_err)
 
     def generate(self):
         raw = "".join(self.code)

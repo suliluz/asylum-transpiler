@@ -1,11 +1,11 @@
-let argc @ 0;
-let sys_year @ 1;
-let sys_month @ 2;
-let sys_day @ 3;
-let sys_hour @ 4;
-let sys_minute @ 5;
-let sys_second @ 6;
-// argv starts at 7, but we can't easily access dynamically sized strings without pointers.
+let argc @ 10;
+let sys_year @ 11;
+let sys_month @ 12;
+let sys_day @ 13;
+let sys_hour @ 14;
+let sys_minute @ 15;
+let sys_second @ 16;
+// argv starts at 17, but we can't easily access dynamically sized strings without pointers.
 
 func print_digit(n: byte) {
     let zero = 48;

@@ -1,6 +1,9 @@
 class MemoryManager:
     def __init__(self):
-        self.scopes = [{}]
+        self.scopes = [{
+            '__err_flag': 1,
+            '__err_code': 2
+        }]
         self.next_free = 1024
         self.temp_pool = set()
         self.freed_addrs = []

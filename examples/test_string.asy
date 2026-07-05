@@ -1,4 +1,5 @@
 import "std/string.asy";
+import "std/sys.asy";
 
 let str_addr0 = 0;
 let str_addr1 = 0;

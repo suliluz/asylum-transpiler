@@ -33,5 +33,5 @@ if (client_fd != 0) {
     
     net_send(client_fd, 0, 22);
     net_close(client_fd);
-}
+
 net_close(server_fd);

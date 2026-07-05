@@ -15,7 +15,7 @@ func draw() {
     while (i != 100) {
         // We can't index easily dynamically yet, so let's just color the first 30 bytes for testing
         i++;
-    }
+    
     
     fb[0] = 255; fb[1] = 0; fb[2] = 0; // Red
     fb[3] = 0; fb[4] = 255; fb[5] = 0; // Green
@@ -23,6 +23,6 @@ func draw() {
     fb[9] = 255; fb[10] = 255; fb[11] = 255; // White
     
     render_frame(fb_0, fb_1, fb_2, fb_3, 10, 1);
-}
+
 
 draw();

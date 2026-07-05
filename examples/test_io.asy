@@ -9,7 +9,7 @@ let fd_write = fopen(1); // 1 = write mode
 
 if (fd_write == 0) {
     print("Failed to open file for writing\n");
-} else {
+ else {
     print("Successfully opened hello.txt for writing (FD: ");
     print_digit(fd_write);
     print(")\n");
@@ -24,7 +24,7 @@ if (fd_write == 0) {
     
     fclose(fd_write);
     print("Closed file.\n");
-}
+
 
 // 2. Re-open for reading
 io_block[2] = "hello.txt";
@@ -32,7 +32,7 @@ let fd_read = fopen(0); // 0 = read mode
 
 if (fd_read == 0) {
     print("Failed to open file for reading\n");
-} else {
+ else {
     print("Opened hello.txt for reading. Contents:\n");
     
     // Read 33 bytes
@@ -45,7 +45,7 @@ if (fd_read == 0) {
     while (i != end) {
         print(io_block[i]);
         i++;
-    }
+    
     
     fclose(fd_read);
-}
+

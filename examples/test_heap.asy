@@ -1,5 +1,6 @@
 import "std/mem.asy";
 import "std/string.asy";
+import "std/sys.asy";
 
 // Allocate 20 bytes
 malloc(0, 0, 0, 20);
