@@ -6,6 +6,8 @@ class Generator:
         self.mem = MemoryManager()
         self.ptr = 1024
         self.functions = {}
+        self.function_ids = {}
+        self.next_func_id = 1
         self.loop_stack = []
         
     def _add(self, ops):
@@ -88,6 +90,8 @@ class Generator:
     def visit_func_decl(self, node):
         name = node.children[0].value
         self.functions[name] = node
+        self.function_ids[name] = self.next_func_id
+        self.next_func_id += 1
             
     def visit_var_decl(self, node):
         name = node.children[0].value
@@ -418,6 +422,9 @@ class Generator:
             self.mem.free_temp(idx_temp)
         elif node.data == 'var':
             name = node.children[0].value
+            if name in getattr(self, 'function_ids', {}):
+                self.set_val(dest_addr, self.function_ids[name])
+                return
             src_addr = self.mem.get(name)
             self.copy(src_addr, dest_addr)
         elif node.data == 'add_expr':
@@ -732,64 +739,61 @@ class Generator:
                 if isinstance(addr, tuple):
                     addr = addr[0]
                 self.move_to(addr)
+                self._add('#')
                 self.copy(addr, dest_addr)
             elif func_name in self.functions:
-                func_node = self.functions[func_name]
-                args = node.children[1].children if len(node.children) > 1 else []
-                params = []
-                block = None
-                for child in func_node.children[1:]:
-                    if hasattr(child, 'data') and child.data == 'param_list':
-                        params = child.children
-                    if hasattr(child, 'data') and child.data == 'block':
-                        block = child
-                        
-                if len(args) != len(params):
-                    raise Exception(f"Func {func_name} expects {len(params)} args, got {len(args)}")
-                    
-                arg_temps = []
-                for arg in args:
-                    t = self.mem.alloc_temp()
-                    self.eval_expr(arg, t)
-                    arg_temps.append(t)
-                    
-                caller_err = self.mem.get('__err_flag')
-                caller_err_code = self.mem.get('__err_code')
-                self.mem.push_scope()
-                callee_err = self.mem.alloc('__err_flag')
-                callee_err_code = self.mem.alloc('__err_code')
-                self.clear(callee_err)
-                self.clear(callee_err_code)
-                ret_addr = self.mem.alloc('_return')
-                self.clear(ret_addr)
-                
-                for i, param in enumerate(params):
-                    p_name = param.children[0].value
-                    p_addr = self.mem.alloc(p_name)
-                    self.clear(p_addr)
-                    self.copy(arg_temps[i], p_addr)
-                    
-                self.visit(block)
-                
-                try:
-                    ret_addr = self.mem.get('_return')
-                    self.copy(ret_addr, dest_addr)
-                except:
-                    pass
-                    
-                callee_err = self.mem.get('__err_flag')
-                callee_err_code = self.mem.get('__err_code')
-                
-                # We need to propagate error up!
-                self.copy(callee_err, caller_err)
-                self.copy(callee_err_code, caller_err_code)
-                    
-                self.mem.pop_scope()
-                for t in arg_temps:
-                    self.clear(t)
-                    self.mem.free_temp(t)
+                self._generate_inline_call(func_name, node, dest_addr)
             else:
-                raise Exception(f"Function {func_name} not found")
+                # Is it a callback?
+                try:
+                    cb_addr = self.mem.get(func_name)
+                except:
+                    raise Exception(f"Function {func_name} not found")
+                
+                args = node.children[1].children if len(node.children) > 1 else []
+                cb_val_t = self.mem.alloc_temp()
+                if isinstance(cb_addr, tuple):
+                    self.copy(cb_addr[0], cb_val_t)
+                else:
+                    self.copy(cb_addr, cb_val_t)
+                
+                # Check all functions that match argument length
+                for fname, fnode in self.functions.items():
+                    params = []
+                    for child in fnode.children[1:]:
+                        if hasattr(child, 'data') and child.data == 'param_list':
+                            params = child.children
+                    
+                    if len(params) == len(args):
+                        fid = self.function_ids[fname]
+                        cond = self.mem.alloc_temp()
+                        self.copy(cb_val_t, cond)
+                        self.move_to(cond)
+                        self._add('-' * fid)
+                        
+                        # if cond == 0, we found it!
+                        is_eq = self.mem.alloc_temp()
+                        self.set_val(is_eq, 1)
+                        self.move_to(cond)
+                        self._add('[')
+                        self.set_val(is_eq, 0)
+                        self.clear(cond)
+                        self.move_to(cond)
+                        self._add(']')
+                        
+                        self.move_to(is_eq)
+                        self._add('[')
+                        
+                        # Generate the call
+                        self._generate_inline_call(fname, node, dest_addr)
+                        
+                        self.clear(is_eq)
+                        self.move_to(is_eq)
+                        self._add(']')
+                        self.mem.free_temp(cond)
+                        self.mem.free_temp(is_eq)
+                        
+                self.mem.free_temp(cb_val_t)
         else:
             raise Exception(f"Unsupported expr {node.data}")
             
@@ -818,6 +822,7 @@ class Generator:
                 if isinstance(addr, tuple):
                     addr = addr[0]
                 self.move_to(addr)
+                self._add('#')
             else:
                 t = self.mem.alloc_temp()
                 self.eval_expr(expr, t)
@@ -1062,3 +1067,60 @@ class Generator:
     def generate(self):
         raw = "".join(self.code)
         return raw
+
+    def _generate_inline_call(self, func_name, node, dest_addr):
+        func_node = self.functions[func_name]
+        args = node.children[1].children if len(node.children) > 1 else []
+        params = []
+        block = None
+        for child in func_node.children[1:]:
+            if hasattr(child, 'data') and child.data == 'param_list':
+                params = child.children
+            if hasattr(child, 'data') and child.data == 'block':
+                block = child
+                
+        if len(args) != len(params):
+            raise Exception(f"Func {func_name} expects {len(params)} args, got {len(args)}")
+            
+        arg_temps = []
+        for arg in args:
+            t = self.mem.alloc_temp()
+            self.eval_expr(arg, t)
+            arg_temps.append(t)
+            
+        caller_err = self.mem.get('__err_flag')
+        caller_err_code = self.mem.get('__err_code')
+        self.mem.push_scope()
+        callee_err = self.mem.alloc('__err_flag')
+        callee_err_code = self.mem.alloc('__err_code')
+        self.clear(callee_err)
+        self.clear(callee_err_code)
+        ret_addr = self.mem.alloc('_return')
+        self.clear(ret_addr)
+        
+        for i, param in enumerate(params):
+            p_name = param.children[0].value
+            p_addr = self.mem.alloc(p_name)
+            self.clear(p_addr)
+            self.copy(arg_temps[i], p_addr)
+            
+        self.visit(block)
+        
+        try:
+            ret_addr = self.mem.get('_return')
+            if dest_addr:
+                self.copy(ret_addr, dest_addr)
+        except:
+            pass
+            
+        callee_err = self.mem.get('__err_flag')
+        callee_err_code = self.mem.get('__err_code')
+        
+        # We need to propagate error up!
+        self.copy(callee_err, caller_err)
+        self.copy(callee_err_code, caller_err_code)
+            
+        self.mem.pop_scope()
+        for t in arg_temps:
+            self.clear(t)
+            self.mem.free_temp(t)

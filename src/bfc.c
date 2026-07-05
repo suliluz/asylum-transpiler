@@ -7,6 +7,7 @@ void compile_bf_to_c(const char* bf_code, FILE* out) {
     fprintf(out, "#include <stdlib.h>\n");
     fprintf(out, "#include <string.h>\n");
     fprintf(out, "#include <time.h>\n");
+    fprintf(out, "#include <sys/time.h>\n");
     fprintf(out, "#include <unistd.h>\n");
     fprintf(out, "#include <sys/socket.h>\n");
     fprintf(out, "#include <netinet/in.h>\n");
@@ -163,6 +164,14 @@ void compile_bf_to_c(const char* bf_code, FILE* out) {
     fprintf(out, "    } else if (cmd == 16) { // NET_CLOSE\n");
     fprintf(out, "        int fd = ptr[1];\n");
     fprintf(out, "        if (sock_table[fd]) { close(sock_table[fd]); sock_table[fd] = 0; ptr[0] = 1; } else { ptr[0] = 0; }\n");
+    fprintf(out, "    } else if (cmd == 17) { // SYS_MILLIS\n");
+    fprintf(out, "        struct timeval tv;\n");
+    fprintf(out, "        gettimeofday(&tv, NULL);\n");
+    fprintf(out, "        unsigned long long ms = (unsigned long long)(tv.tv_sec) * 1000 + (unsigned long long)(tv.tv_usec) / 1000;\n");
+    fprintf(out, "        ptr[0] = (ms >> 24) & 0xFF;\n");
+    fprintf(out, "        ptr[1] = (ms >> 16) & 0xFF;\n");
+    fprintf(out, "        ptr[2] = (ms >> 8) & 0xFF;\n");
+    fprintf(out, "        ptr[3] = ms & 0xFF;\n");
     fprintf(out, "    }\n");
     fprintf(out, "}\n\n");
     

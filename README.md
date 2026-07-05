@@ -22,6 +22,8 @@ Unlike standard high-level languages, Asylum embraces the absolute absurdity of 
 - **Hardware Integrations**: OS Command Line Arguments (`argc`/`argv`) and System Date/Time are directly injected into the lower bounds of the tape *before* execution starts.
 - **True Pointers & Dynamic Memory**: Using `#` interrupts, Asylum implements true 32-bit indirect memory access (`read_ptr`/`write_ptr`), allowing for runtime dynamic arrays and `malloc()`!
 - **Networking & Graphics**: Native `#` interrupts allow the tape to interface directly with the Linux Kernel for file streams, TCP sockets (web servers!), and ANSI RGB framebuffer rendering!
+- **First-Class Callbacks**: Dynamically pass and invoke functions by resolving them to numerical IDs, enabling dynamic dispatch and functional programming paradigms without dynamic jumps.
+- **High-Resolution Timer**: Access precise millisecond-level UNIX timestamps during runtime for benchmarking and game loops via `sys_millis()`.
 - **No Python Runtime**: Applications built with `asyc build` are entirely standalone, self-contained native Linux binaries.
 
 ---
@@ -56,14 +58,19 @@ message[1] = 105; // 'i'
 ### The Standard Library
 To save you from the madness of raw tape manipulation, Asylum comes with a robust standard library:
 
-#### 1. System/Time (`std/sys.asy`)
-Accesses OS-injected variables automatically.
+#### 1. System/Time (`std/sys.asy` & `std/time.asy`)
+Accesses OS-injected variables automatically and provides high-resolution timers.
 ```typescript
 import "std/sys.asy";
+import "std/time.asy";
 
-// Get the current system time (injected by the runtime)
+// Get the system date (injected by the runtime)
 let year = sys_year;
 let month = sys_month;
+
+// Get a high-resolution millisecond timer for benchmarking
+sys_millis();
+let current_ms = _sys_time_block[3]; // Grabs the lower 8-bits of the 32-bit timestamp
 ```
 
 #### 2. Mathematics (`std/math.asy`)
@@ -106,6 +113,24 @@ let client = net_accept(server);
 // ... manual string population ...
 net_send(client, 0, 22);
 net_close(client);
+```
+
+### First-Class Callbacks
+You can pass functions around as variables! The transpiler dynamically maps every function to a unique numerical ID, and builds an intelligent dispatch table whenever a callback is invoked.
+
+```typescript
+func add(a: byte, b: byte) byte { return a + b; }
+func sub(a: byte, b: byte) byte { return a - b; }
+
+// Generic executor
+func run_math(op_func: byte, x: byte, y: byte) byte {
+    return op_func(x, y); 
+}
+
+let cb1 = add;
+let cb2 = sub;
+
+let result = run_math(cb1, 5, 3); // 8
 ```
 
 #### 5. Dynamic Memory & Pointers (`std/mem.asy`, `std/ptr.asy`)
