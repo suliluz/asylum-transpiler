@@ -70,8 +70,16 @@ class Generator:
             raise Exception(f"No visit method for {node.data}")
             
     def visit_start(self, node):
+        self.mem.push_scope()
+        main_err = self.mem.alloc('__err_flag')
+        main_err_code = self.mem.alloc('__err_code')
+        self.clear(main_err)
+        self.clear(main_err_code)
+        
         for child in node.children:
             self.visit(child)
+            
+        self.mem.pop_scope()
             
     def visit_import_stmt(self, node):
         # handeled by main.py merging asts
@@ -276,6 +284,46 @@ class Generator:
             addr = self.mem.get(name)
             self.eval_expr(expr_node, addr)
         
+    def _is_less(self, a_addr, b_addr, dest_addr):
+        self.clear(dest_addr)
+        t0 = self.mem.alloc_temp()
+        t1 = self.mem.alloc_temp()
+        t2 = self.mem.alloc_temp()
+        
+        self.copy(a_addr, t0)
+        self.copy(b_addr, t1)
+        
+        self.set_val(t2, 1)
+        
+        self.move_to(t0)
+        self._add('[')
+        
+        self.move_to(t1)
+        self._add('[-')
+        
+        self.move_to(t0)
+        self._add('[-]')
+        self.clear(t2)
+        
+        self.move_to(t1)
+        self._add(']')
+        
+        self.move_to(t0)
+        self._add('-]')
+        
+        self.move_to(t1)
+        self._add('[')
+        self.move_to(t2)
+        self._add('[-]')
+        self.set_val(dest_addr, 1)
+        
+        self.move_to(t1)
+        self._add('[-]]')
+        
+        self.mem.free_temp(t0)
+        self.mem.free_temp(t1)
+        self.mem.free_temp(t2)
+
     def _do_print(self, arg):
         if arg.data == 'string':
             import ast
@@ -301,8 +349,10 @@ class Generator:
 
     def eval_expr(self, node, dest_addr):
         if node.data == 'number':
-            val = int(float(node.children[0].value))
+            val = int(node.children[0].value)
             self.set_val(dest_addr, val)
+        elif node.data == 'null_lit':
+            self.clear(dest_addr)
         elif node.data == 'string':
             import ast
             val = ast.literal_eval(node.children[0].value)
@@ -435,8 +485,8 @@ class Generator:
                 
                 self.move_to(is_zero)
                 self._add('[')
-                self.set_val(1, 1)
-                self.set_val(2, 1)
+                self.set_val(self.mem.get('__err_flag'), 1)
+                self.set_val(self.mem.get('__err_code'), 1)
                 err_msg = "Math Error: Divide by Zero\n"
                 for c in err_msg:
                     char_val = ord(c)
@@ -573,10 +623,34 @@ class Generator:
             op = node.children[1].value
             right = node.children[2]
             
-            self.eval_expr(left, dest_addr)
-            temp = self.mem.alloc_temp()
-            self.eval_expr(right, temp)
+            l_addr = self.mem.alloc_temp()
+            r_addr = self.mem.alloc_temp()
+            self.eval_expr(left, l_addr)
+            self.eval_expr(right, r_addr)
             
+            if op == '<':
+                self._is_less(l_addr, r_addr, dest_addr)
+                self.clear(l_addr)
+                self.clear(r_addr)
+                self.mem.free_temp(l_addr)
+                self.mem.free_temp(r_addr)
+                return
+            elif op == '>':
+                self._is_less(r_addr, l_addr, dest_addr)
+                self.clear(l_addr)
+                self.clear(r_addr)
+                self.mem.free_temp(l_addr)
+                self.mem.free_temp(r_addr)
+                return
+                
+            self.copy(l_addr, dest_addr)
+            temp = self.mem.alloc_temp()
+            self.copy(r_addr, temp)
+            self.clear(l_addr)
+            self.clear(r_addr)
+            self.mem.free_temp(l_addr)
+            self.mem.free_temp(r_addr)
+                
             self.move_to(temp)
             self._add('[-')
             self.move_to(dest_addr)
@@ -613,7 +687,7 @@ class Generator:
                 self.clear(t1)
                 self.mem.free_temp(t1)
             else:
-                raise Exception(f"Op {op} not implemented fully yet")
+                pass
 
         elif node.data == 'func_call':
             func_name = node.children[0].value
@@ -650,7 +724,13 @@ class Generator:
                     self.eval_expr(arg, t)
                     arg_temps.append(t)
                     
+                caller_err = self.mem.get('__err_flag')
+                caller_err_code = self.mem.get('__err_code')
                 self.mem.push_scope()
+                callee_err = self.mem.alloc('__err_flag')
+                callee_err_code = self.mem.alloc('__err_code')
+                self.clear(callee_err)
+                self.clear(callee_err_code)
                 ret_addr = self.mem.alloc('_return')
                 self.clear(ret_addr)
                 
@@ -667,6 +747,13 @@ class Generator:
                     self.copy(ret_addr, dest_addr)
                 except:
                     pass
+                    
+                callee_err = self.mem.get('__err_flag')
+                callee_err_code = self.mem.get('__err_code')
+                
+                # We need to propagate error up!
+                self.copy(callee_err, caller_err)
+                self.copy(callee_err_code, caller_err_code)
                     
                 self.mem.pop_scope()
                 for t in arg_temps:
@@ -875,9 +962,9 @@ class Generator:
         expr = node.children[0]
         err_code_temp = self.mem.alloc_temp()
         self.eval_expr(expr, err_code_temp)
-        self.set_val(1, 1) # __err_flag
-        self.clear(2) # __err_code
-        self.copy(err_code_temp, 2)
+        self.set_val(self.mem.get('__err_flag'), 1)
+        self.clear(self.mem.get('__err_code'))
+        self.copy(err_code_temp, self.mem.get('__err_code'))
         self.clear(err_code_temp)
         self.mem.free_temp(err_code_temp)
 
@@ -913,7 +1000,7 @@ class Generator:
             not_err = self.mem.alloc_temp()
             self.set_val(not_err, 1)
             err_copy = self.mem.alloc_temp()
-            self.copy(1, err_copy)
+            self.copy(self.mem.get('__err_flag'), err_copy)
             self.move_to(err_copy)
             self._add('[-')
             self.clear(not_err)

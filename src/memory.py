@@ -1,27 +1,20 @@
 class MemoryManager:
     def __init__(self):
-        self.scopes = [{
-            '__err_flag': 1,
-            '__err_code': 2
-        }]
+        self.scopes = [{}]
         self.next_free = 1024
         self.temp_pool = set()
         self.freed_addrs = []
         
     def push_scope(self):
         self.scopes.append({})
+        if not hasattr(self, 'scope_starts'):
+            self.scope_starts = []
+        self.scope_starts.append(self.next_free)
         
     def pop_scope(self):
         popped = self.scopes.pop()
-        for addr in popped.values():
-            if isinstance(addr, tuple) and isinstance(addr[1], dict):
-                for offset in addr[1].values():
-                    self.freed_addrs.append(addr[0] + offset)
-            elif isinstance(addr, tuple):
-                for offset in range(addr[1]):
-                    self.freed_addrs.append(addr[0] + offset)
-            else:
-                self.freed_addrs.append(addr)
+        self.next_free = self.scope_starts.pop()
+        self.freed_addrs = [a for a in self.freed_addrs if a < self.next_free]
             
     def alloc(self, name, fixed_addr=None):
         if name in self.scopes[-1]:

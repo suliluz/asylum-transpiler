@@ -303,10 +303,10 @@ int main(int argc, char** argv) {
     fclose(out);
     free(bf_code);
     
-    printf("Transpiled to %s, compiling with GCC -O3...\n", c_file);
+    printf("Transpiled to %s, compiling with GCC -O1...\n", c_file);
     
     char cmd[2048];
-    snprintf(cmd, sizeof(cmd), "gcc -O3 \"%s\" -o \"%s\"", c_file, output_bin);
+    snprintf(cmd, sizeof(cmd), "gcc -O1 \"%s\" -o \"%s\"", c_file, output_bin);
     int res = system(cmd);
     
     if (res == 0) {

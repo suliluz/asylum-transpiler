@@ -5,7 +5,9 @@ start: statement*
           | func_decl
           | if_stmt
           | while_stmt
+          | do_while_stmt
           | for_stmt
+          | foreach_stmt
           | assignment
           | expr_stmt
           | return_stmt
@@ -39,7 +41,11 @@ if_stmt: "if" "(" expr ")" block ("else" block)?
 
 while_stmt: "while" "(" expr ")" block
 
+do_while_stmt: "do" block "while" "(" expr ")" ";"
+
 for_stmt: "for" "(" (var_decl | assignment)? expr ";" (assignment | inc_dec_stmt)? ")" block
+
+foreach_stmt: "foreach" "(" CNAME "in" CNAME ("," expr)? ")" block
 
 array_access: CNAME "[" expr "]"
 
@@ -74,6 +80,9 @@ json_obj: "{" (json_pair ("," json_pair)*)? "}"
 prop_access: CNAME "." CNAME
 
 ?atom: NUMBER -> number
+     | "true" -> true_lit
+     | "false" -> false_lit
+     | "null" -> null_lit
      | CNAME -> var
      | ESCAPED_STRING -> string
      | CNAME "(" arg_list? ")" -> func_call
