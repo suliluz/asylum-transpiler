@@ -265,7 +265,25 @@ Furthermore, earlier implementations of `pow` and `mul` incorrectly copied sourc
 **The Fix**: I rewrote the evaluator loop to sequentially fold over all chained AST children left-to-right. I also corrected the Brainfuck tape manipulation inside the multiplication and exponentiation loops to properly accumulate mathematical results using temporary registers, finally stabilizing complex algebraic equations natively in Brainfuck.
 
 ### Feature Implementation: Callbacks & Sys Timer
-During our latest sprint, we architected and successfully implemented high-performance system timers and functional callback dispatch without any dynamic jumps:
+During our latest sprint, we architected and successfully implemented high-performance system timers and functional callback dispatch without any dynamic jumps!
+
+#### 1. The Missing `#` Bug Fix
+During our previous refactor to optimize error bubbling, the `#` instruction emission in the `syscall` handler was accidentally deleted. I restored the `self._add('#')` instruction to both `visit_expr_stmt` and `eval_expr` in `src/generator.py`, immediately fixing all networking and file I/O bugs that would have surfaced.
+
+#### 2. Hardware Timer (`SYS_MILLIS`)
+We modified the `handle_syscall` block in `src/bfc.c` to accept `cmd == 17`. When called, it accesses the native C `<sys/time.h>` header, calls `gettimeofday`, and splits a 32-bit millisecond UNIX timestamp across the 4 bytes at the tape pointer. We also created `std/time.asy`, allocating a `_sys_time_block` memory space and exposing `func sys_millis()`.
+
+#### 3. First-Class Functions (Callbacks)
+This was the most architecturally challenging feature, as Brainfuck lacks a program counter or dynamic jumps!
+- **Function IDs**: `src/generator.py` now assigns a unique sequential ID (`self.function_ids`) to every user-defined function.
+- **Function References**: When you assign a function to a variable (e.g. `let cb = my_func`), the generator intercepts the AST evaluation and statically returns the function's numerical ID instead of performing a variable lookup on the tape.
+- **Dynamic Dispatch Loop**: When the compiler detects a function call (`cb(10)`) where `cb` is not a statically known built-in function, it assumes it is a callback. It iterates over *all known functions* that match the argument length, generates an `if (cb == function_id)` block, and inside that block generates the inline evaluation for that specific function.
+
+> [!CAUTION]
+> **Performance Impact of Callbacks**
+> Because Brainfuck has no dynamic jumps, the dynamic dispatch table essentially copies the inline evaluation of *every matching function signature* into a giant `if/else` block wherever a callback is invoked. If you create 50 functions with identical signatures, invoking a callback will paste all 50 function bodies into the `.bf` file. Use callbacks sparingly to avoid file bloat!
+
+**Recent Task Checklist:**
 - [x] Fix `syscall` missing `#` interrupt regression in `generator.py`
 - [x] Add `SYS_MILLIS` command to C-level `src/bfc.c`
 - [x] Expose `sys_millis()` via `std/time.asy`
