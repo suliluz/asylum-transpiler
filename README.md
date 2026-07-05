@@ -60,6 +60,14 @@ To save you from the madness of raw tape manipulation, Asylum comes with a robus
 
 #### 1. System/Time (`std/sys.asy` & `std/time.asy`)
 Accesses OS-injected variables automatically and provides high-resolution timers.
+
+**Available Injected Variables (`std/sys.asy`):**
+- `argc`: Number of command-line arguments.
+- `sys_year`: Current year (e.g., 26 for 2026).
+- `sys_month`: Current month (1-12).
+- `sys_day`: Day of the month (1-31).
+- `sys_hour`, `sys_minute`, `sys_second`: Current local time.
+
 ```typescript
 import "std/sys.asy";
 import "std/time.asy";
