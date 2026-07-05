@@ -61,6 +61,21 @@ message[0] = 72; // 'H'
 message[1] = 105; // 'i'
 ```
 
+### Static JSON Structs
+Asylum supports allocating static memory blocks formatted as JSON objects. The compiler converts JSON keys into compile-time memory offsets, acting exactly like `structs` in C!
+
+```typescript
+let player = {
+    "x": 10,
+    "y": 20,
+    "hp": 100
+};
+
+// Access via dot notation (resolves statically without any runtime lookup loops!)
+player.x += 5;
+let is_dead = player.hp == 0;
+```
+
 ### The Standard Library
 To save you from the madness of raw tape manipulation, Asylum comes with a robust standard library:
 
