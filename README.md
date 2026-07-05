@@ -43,6 +43,7 @@ Asylum supports several primitive data types in its syntax to define memory shap
 - **`int`, `long`, `float`, `double`**: Multi-byte primitives parsed by the syntax (Note: At the lowest Brainfuck level, all math compiles down to 8-bit loop manipulation, but these types reserve wider contiguous cells on the tape).
 - **`string`**: Null-terminated character sequences.
 - **`type[N]` (Arrays)**: Static homogeneous sequences (e.g. `byte[5]`).
+- **`{}` (JSON Objects)**: Composite data structures acting as C-style structs, mapping string keys to compile-time memory offsets.
 
 Because Brainfuck only operates on single cells, the core building block of all data is ultimately an **8-bit unsigned integer**, wrapping from `0` to `255`. 
 
