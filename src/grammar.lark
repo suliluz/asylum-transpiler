@@ -30,6 +30,7 @@ param_list: param ("," param)*
 param: CNAME ":" type
 
 type: "byte" -> type_byte
+    | "bool" -> type_bool
     | "int" -> type_int
     | "long" -> type_long
     | "float" -> type_float

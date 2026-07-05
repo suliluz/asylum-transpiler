@@ -39,7 +39,7 @@ By convention, the first `1024` bytes (Addresses `0-1023`) are reserved for the 
 
 ### Variables & Data Types
 Asylum supports several primitive data types in its syntax to define memory shapes:
-- **`byte`**: The fundamental 8-bit unsigned integer (`0-255`).
+- **`byte` / `bool`**: The fundamental 8-bit unsigned integer (`0-255`). Booleans are syntactic sugar for `0` (false) and `1` (true).
 - **`int`, `long`, `float`, `double`**: Multi-byte primitives parsed by the syntax (Note: At the lowest Brainfuck level, all math compiles down to 8-bit loop manipulation, but these types reserve wider contiguous cells on the tape).
 - **`string`**: Null-terminated character sequences.
 - **`type[N]` (Arrays)**: Static homogeneous sequences (e.g. `byte[5]`).
