@@ -1,0 +1,68 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "Asylum",
+    "patterns": [
+        {
+            "include": "#keywords"
+        },
+        {
+            "include": "#strings"
+        },
+        {
+            "include": "#comments"
+        },
+        {
+            "include": "#types"
+        },
+        {
+            "include": "#numbers"
+        }
+    ],
+    "repository": {
+        "keywords": {
+            "patterns": [
+                {
+                    "name": "keyword.control.asylum",
+                    "match": "\\b(if|else|while|for|return|import)\\b"
+                },
+                {
+                    "name": "keyword.declaration.asylum",
+                    "match": "\\b(let|func)\\b"
+                }
+            ]
+        },
+        "strings": {
+            "name": "string.quoted.double.asylum",
+            "begin": "\"",
+            "end": "\"",
+            "patterns": [
+                {
+                    "name": "constant.character.escape.asylum",
+                    "match": "\\\\."
+                }
+            ]
+        },
+        "comments": {
+            "patterns": [
+                {
+                    "name": "comment.line.double-slash.asylum",
+                    "match": "//.*$"
+                },
+                {
+                    "name": "comment.asyock.asylum",
+                    "begin": "/\\*",
+                    "end": "\\*/"
+                }
+            ]
+        },
+        "types": {
+            "name": "support.type.asylum",
+            "match": "\\b(byte|int|long|float|double|string)\\b"
+        },
+        "numbers": {
+            "name": "constant.numeric.asylum",
+            "match": "\\b\\d+(\\.\\d+)?\\b"
+        }
+    },
+    "scopeName": "source.asy"
+}

@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+import sys
+import os
+import subprocess
+import tempfile
+import argparse
+import shutil
+
+# Determine the absolute path to the transpiler directory
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+SRC_DIR = os.path.join(SCRIPT_DIR, "src")
+MAIN_PY = os.path.join(SRC_DIR, "main.py")
+BFC = os.path.join(SRC_DIR, "bfc")
+
+# Ensure Python can find src/
+sys.path.insert(0, SCRIPT_DIR)
+
+def build_binary(input_file, output_bin=None):
+    if not output_bin:
+        output_bin = os.path.splitext(input_file)[0] + ".bin"
+        
+    temp_bf = tempfile.NamedTemporaryFile(suffix='.bf', delete=False).name
+    temp_c = temp_bf + ".c"
+    
+    try:
+        # Step 1: Asylum to Brainfuck
+        res = subprocess.run([sys.executable, MAIN_PY, input_file, "-o", temp_bf], cwd=SCRIPT_DIR)
+        if res.returncode != 0:
+            print(f"Compilation failed for {input_file}")
+            sys.exit(1)
+            
+        # Step 2: Brainfuck to Native using native bfc
+        res = subprocess.run([BFC, temp_bf, "-o", output_bin], cwd=SCRIPT_DIR)
+        if res.returncode != 0:
+            print(f"Native compilation failed for {temp_bf}")
+            sys.exit(1)
+            
+        return output_bin
+    finally:
+        # Cleanup
+        if os.path.exists(temp_bf):
+            os.remove(temp_bf)
+        if os.path.exists(temp_c):
+            os.remove(temp_c)
+
+def main():
+    parser = argparse.ArgumentParser(description="Asylum Compiler (asyc)")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    
+    # build
+    build_parser = subparsers.add_parser("build", help="Compile a .asy file to a native executable")
+    build_parser.add_argument("file", help="Input .asy file")
+    build_parser.add_argument("-o", "--output", help="Output binary file")
+    
+    # run
+    run_parser = subparsers.add_parser("run", help="Compile and run a .asy file in memory")
+    run_parser.add_argument("file", help="Input .asy file")
+    run_parser.add_argument("args", nargs=argparse.REMAINDER, help="Arguments to pass to the program")
+    
+    # emit-bf
+    emit_bf_parser = subparsers.add_parser("emit-bf", help="Emit intermediate Brainfuck code")
+    emit_bf_parser.add_argument("file", help="Input .asy file")
+    emit_bf_parser.add_argument("-o", "--output", help="Output .bf file")
+    
+    # emit-c
+    emit_c_parser = subparsers.add_parser("emit-c", help="Emit intermediate C code")
+    emit_c_parser.add_argument("file", help="Input .asy file")
+    emit_c_parser.add_argument("-o", "--output", help="Output .c file")
+
+    args = parser.parse_args()
+    
+    input_file = os.path.abspath(args.file)
+    if not os.path.exists(input_file):
+        print(f"Error: File '{args.file}' not found.")
+        sys.exit(1)
+        
+    if args.command == "build":
+        out_bin = build_binary(input_file, args.output)
+        print(f"Successfully built: {out_bin}")
+        
+    elif args.command == "run":
+        temp_bin = tempfile.NamedTemporaryFile(delete=False).name
+        try:
+            build_binary(input_file, temp_bin)
+            run_args = [temp_bin] + args.args
+            subprocess.run(run_args)
+        finally:
+            if os.path.exists(temp_bin):
+                os.remove(temp_bin)
+                
+    elif args.command == "emit-bf":
+        out_bf = args.output if args.output else os.path.splitext(input_file)[0] + ".bf"
+        res = subprocess.run([sys.executable, MAIN_PY, input_file, "-o", out_bf], cwd=SCRIPT_DIR)
+        if res.returncode == 0:
+            print(f"Emitted: {out_bf}")
+            
+    elif args.command == "emit-c":
+        out_c = args.output if args.output else os.path.splitext(input_file)[0] + ".c"
+        temp_bf = tempfile.NamedTemporaryFile(suffix='.bf', delete=False).name
+        try:
+            res = subprocess.run([sys.executable, MAIN_PY, input_file, "-o", temp_bf], cwd=SCRIPT_DIR, capture_output=True)
+            if res.returncode == 0:
+                # bf2c always writes to input_file.c
+                subprocess.run([BFC, temp_bf, "-o", "/dev/null"], cwd=SCRIPT_DIR, capture_output=True)
+                shutil.copy(temp_bf + ".c", out_c)
+                print(f"Emitted: {out_c}")
+            else:
+                print(res.stderr.decode())
+        finally:
+            if os.path.exists(temp_bf):
+                os.remove(temp_bf)
+            if os.path.exists(temp_bf + ".c"):
+                os.remove(temp_bf + ".c")
+
+if __name__ == "__main__":
+    main()

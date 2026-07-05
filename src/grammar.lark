@@ -1,0 +1,89 @@
+start: statement*
+
+?statement: import_stmt
+          | var_decl
+          | func_decl
+          | if_stmt
+          | while_stmt
+          | for_stmt
+          | assignment
+          | expr_stmt
+          | return_stmt
+          | block
+
+import_stmt: "import" ESCAPED_STRING ";"
+
+var_decl: "let" CNAME ("@" NUMBER)? ":" type "=" expr ";"
+        | "let" CNAME ("@" NUMBER)? "=" expr ";"
+        | "let" CNAME ("@" NUMBER)? ":" type ";"
+        | "let" CNAME ("@" NUMBER)? ";"
+
+func_decl: "func" CNAME "(" param_list? ")" type? block
+
+param_list: param ("," param)*
+param: CNAME ":" type
+
+type: "byte" -> type_byte
+    | "int" -> type_int
+    | "long" -> type_long
+    | "float" -> type_float
+    | "double" -> type_double
+    | "string" -> type_string
+    | type "[" NUMBER "]" -> type_array
+
+if_stmt: "if" "(" expr ")" block ("else" block)?
+
+while_stmt: "while" "(" expr ")" block
+
+for_stmt: "for" "(" (var_decl | assignment)? expr ";" (assignment | inc_dec_stmt)? ")" block
+
+array_access: CNAME "[" expr "]"
+
+inc_dec_stmt: CNAME "++" -> inc
+            | CNAME "--" -> dec
+
+assignment: CNAME "=" expr ";"
+          | array_access "=" expr ";"
+          | prop_access "=" expr ";"
+          | CNAME "+=" expr ";" -> assign_add
+          | CNAME "-=" expr ";" -> assign_sub
+
+expr_stmt: expr ";"
+         | inc_dec_stmt ";"
+return_stmt: "return" expr ";"
+
+block: "{" statement* "}"
+
+?expr: equality
+
+COMP_OP: "==" | "!=" | "<" | ">"
+?equality: add_expr (COMP_OP add_expr)*
+ADD_OP: "+" | "-"
+?add_expr: mul_expr (ADD_OP mul_expr)*
+?mul_expr: atom
+
+json_pair: ESCAPED_STRING ":" expr
+json_obj: "{" (json_pair ("," json_pair)*)? "}"
+prop_access: CNAME "." CNAME
+
+?atom: NUMBER -> number
+     | CNAME -> var
+     | ESCAPED_STRING -> string
+     | CNAME "(" arg_list? ")" -> func_call
+     | array_access
+     | prop_access
+     | json_obj
+     | "(" expr ")" -> paren
+
+arg_list: expr ("," expr)*
+
+%import common.CNAME
+%import common.NUMBER
+%import common.WS
+%import common.CPP_COMMENT
+%import common.C_COMMENT
+%import common.ESCAPED_STRING
+
+%ignore WS
+%ignore CPP_COMMENT
+%ignore C_COMMENT

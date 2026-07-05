@@ -1,0 +1,42 @@
+{
+  "name": "asylum-lsp",
+  "displayName": "Asylum",
+  "description": "Asylum Language Server and Syntax Highlighting",
+  "version": "1.0.0",
+  "publisher": "asylum",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "asylum",
+        "aliases": [
+          "Asylum",
+          "bl"
+        ],
+        "extensions": [
+          ".asy"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "asylum",
+        "scopeName": "source.asy",
+        "path": "./syntaxes/asylum.tmLanguage.json"
+      }
+    ]
+  },
+  "activationEvents": [
+    "onLanguage:asylum"
+  ],
+  "main": "./extension.js",
+  "dependencies": {
+    "vscode-languageclient": "^8.0.2"
+  }
+}
