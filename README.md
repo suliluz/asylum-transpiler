@@ -166,6 +166,9 @@ Use at your own risk!
 
 ## 📖 Developer Journal
 
+### Tape Alignment & Pointer Desync ("Wrong Pointing")
+One of the most persistent and time-consuming bugs throughout early development was keeping the Brainfuck memory head perfectly synchronized with the compiler's internal state. Because the compiler emits raw `>` and `<` instructions to navigate the 1MB tape, any off-by-one error in tracking `self.current_addr` would lead to catastrophic cascading failures. If a `while` loop exited with the pointer shifted even one cell over, all subsequent variables would be written to the wrong memory addresses (a phenomenon we called "wrong pointing"). Debugging this required dumping raw tape states and meticulously tracking movement offsets instruction-by-instruction until we built a robust `move_to(addr)` abstraction that guaranteed state consistency across AST node boundaries.
+
 ### Scope Memory Leaks and Tape Collisions
 Early in development, we ran into insidious memory corruption bugs where nested function calls would silently overwrite active variables. The issue traced back to how the Memory Manager tracked the `next_free` pointer when pushing and popping scopes. When a scope was popped, the compiler was incorrectly restoring the allocator's high-water mark, leading to overlapping variable allocations on the tape. We fixed this by deeply refactoring the scope tree to correctly maintain isolated memory bounds and properly garbage collect temporary registers across scope boundaries.
 
