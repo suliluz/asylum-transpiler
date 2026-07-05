@@ -421,39 +421,196 @@ class Generator:
             src_addr = self.mem.get(name)
             self.copy(src_addr, dest_addr)
         elif node.data == 'add_expr':
-            left = node.children[0]
-            op = node.children[1].value
-            right = node.children[2]
-            
-            self.eval_expr(left, dest_addr)
-            temp = self.mem.alloc_temp()
-            self.eval_expr(right, temp)
-            
-            self.move_to(temp)
-            self._add('[-')
-            self.move_to(dest_addr)
-            if op == '+':
-                self._add('+')
-            else:
-                self._add('-')
-            self.move_to(temp)
-            self._add(']')
-            self.mem.free_temp(temp)
+            self.eval_expr(node.children[0], dest_addr)
+            idx = 1
+            while idx < len(node.children):
+                op = node.children[idx].value
+                right = node.children[idx+1]
+                temp = self.mem.alloc_temp()
+                self.eval_expr(right, temp)
+                self.move_to(temp)
+                self._add('[-')
+                self.move_to(dest_addr)
+                if op == '+':
+                    self._add('+')
+                else:
+                    self._add('-')
+                self.move_to(temp)
+                self._add(']')
+                self.mem.free_temp(temp)
+                idx += 2
         elif node.data == 'mul_expr':
-            left = node.children[0]
-            op = node.children[1].value
-            right = node.children[2]
-            
-            self.eval_expr(left, dest_addr)
-            temp = self.mem.alloc_temp()
-            self.eval_expr(right, temp)
-            
-            if op == '*':
+            self.eval_expr(node.children[0], dest_addr)
+            idx = 1
+            while idx < len(node.children):
+                op = node.children[idx].value
+                right = node.children[idx+1]
+                
+                temp = self.mem.alloc_temp()
+                self.eval_expr(right, temp)
+                
+                if op == '*':
+                    res = self.mem.alloc_temp()
+                    self.clear(res)
+                    a_copy = self.mem.alloc_temp()
+                    self.clear(a_copy)
+                    
+                    self.move_to(dest_addr)
+                    self._add('[-')
+                    self.move_to(a_copy)
+                    self._add('+')
+                    self.move_to(dest_addr)
+                    self._add(']')
+                    
+                    self.move_to(a_copy)
+                    self._add('[-')
+                    
+                    t_copy = self.mem.alloc_temp()
+                    self.copy(temp, t_copy)
+                    self.move_to(t_copy)
+                    self._add('[-')
+                    self.move_to(res)
+                    self._add('+')
+                    self.move_to(t_copy)
+                    self._add(']')
+                    self.mem.free_temp(t_copy)
+                    
+                    self.move_to(a_copy)
+                    self._add(']')
+                    
+                    self.copy(res, dest_addr)
+                    self.clear(res)
+                    self.mem.free_temp(res)
+                    self.mem.free_temp(a_copy)
+                elif op in ('/', '%'):
+                    is_zero = self.mem.alloc_temp()
+                    self.set_val(is_zero, 1)
+                    t_copy = self.mem.alloc_temp()
+                    self.copy(temp, t_copy)
+                    self.move_to(t_copy)
+                    self._add('[-')
+                    self.clear(is_zero)
+                    self.move_to(t_copy)
+                    self._add(']')
+                    self.mem.free_temp(t_copy)
+                    
+                    self.move_to(is_zero)
+                    self._add('[')
+                    self.set_val(self.mem.get('__err_flag'), 1)
+                    self.set_val(self.mem.get('__err_code'), 1)
+                    err_msg = "Math Error: Divide by Zero\n"
+                    for c in err_msg:
+                        char_val = ord(c)
+                        t_char = self.mem.alloc_temp()
+                        self.set_val(t_char, char_val)
+                        self.move_to(t_char)
+                        self._add('.')
+                        self.clear(t_char)
+                        self.mem.free_temp(t_char)
+                    self.clear(is_zero)
+                    self._add(']')
+                    self.mem.free_temp(is_zero)
+                    
+                    res = self.mem.alloc_temp()
+                    self.clear(res)
+                    rem = self.mem.alloc_temp()
+                    self.clear(rem)
+                    x_copy = self.mem.alloc_temp()
+                    self.clear(x_copy)
+                    
+                    self.move_to(dest_addr)
+                    self._add('[-')
+                    self.move_to(x_copy)
+                    self._add('+')
+                    self.move_to(dest_addr)
+                    self._add(']')
+                    
+                    self.move_to(x_copy)
+                    self._add('[-')
+                    self.move_to(rem)
+                    self._add('+')
+                    
+                    t1 = self.mem.alloc_temp()
+                    t2 = self.mem.alloc_temp()
+                    self.copy(rem, t1)
+                    
+                    self.move_to(temp)
+                    self._add('[-')
+                    self.move_to(t1)
+                    self._add('-')
+                    self.move_to(t2)
+                    self._add('+')
+                    self.move_to(temp)
+                    self._add(']')
+                    
+                    self.move_to(t2)
+                    self._add('[-')
+                    self.move_to(temp)
+                    self._add('+')
+                    self.move_to(t2)
+                    self._add(']')
+                    
+                    is_eq = self.mem.alloc_temp()
+                    self.set_val(is_eq, 1)
+                    self.move_to(t1)
+                    self._add('[-')
+                    self.clear(is_eq)
+                    self.move_to(t1)
+                    self._add(']')
+                    
+                    self.move_to(is_eq)
+                    self._add('[-')
+                    self.move_to(res)
+                    self._add('+')
+                    self.clear(rem)
+                    self.move_to(is_eq)
+                    self._add(']')
+                    
+                    self.mem.free_temp(t1)
+                    self.mem.free_temp(t2)
+                    self.mem.free_temp(is_eq)
+                    
+                    self.move_to(x_copy)
+                    self._add(']')
+                    
+                    if op == '/':
+                        self.copy(res, dest_addr)
+                    else:
+                        self.copy(rem, dest_addr)
+                        
+                    self.clear(res)
+                    self.clear(rem)
+                    self.clear(x_copy)
+                    self.mem.free_temp(res)
+                    self.mem.free_temp(rem)
+                    self.mem.free_temp(x_copy)
+                self.mem.free_temp(temp)
+                idx += 2
+        elif node.data == 'pow_expr':
+            self.eval_expr(node.children[0], dest_addr)
+            idx = 1
+            while idx < len(node.children):
+                op = node.children[idx].value
+                right = node.children[idx+1]
+                
+                temp_base = self.mem.alloc_temp()
+                self.copy(dest_addr, temp_base)
+                
+                temp_exp = self.mem.alloc_temp()
+                self.eval_expr(right, temp_exp)
+                
+                # Check if exp is 0. If so, res is 1. We just loop exp times.
+                self.set_val(dest_addr, 1)
+                
+                self.move_to(temp_exp)
+                self._add('[-')
+                
                 res = self.mem.alloc_temp()
                 self.clear(res)
                 a_copy = self.mem.alloc_temp()
                 self.clear(a_copy)
                 
+                # dest_addr contains current running product
                 self.move_to(dest_addr)
                 self._add('[-')
                 self.move_to(a_copy)
@@ -461,9 +618,20 @@ class Generator:
                 self.move_to(dest_addr)
                 self._add(']')
                 
+                # Multiply a_copy by temp_base, add to res
                 self.move_to(a_copy)
                 self._add('[-')
-                self.copy(temp, res)
+                
+                t_base_copy = self.mem.alloc_temp()
+                self.copy(temp_base, t_base_copy)
+                self.move_to(t_base_copy)
+                self._add('[-')
+                self.move_to(res)
+                self._add('+')
+                self.move_to(t_base_copy)
+                self._add(']')
+                self.mem.free_temp(t_base_copy)
+                
                 self.move_to(a_copy)
                 self._add(']')
                 
@@ -471,153 +639,14 @@ class Generator:
                 self.clear(res)
                 self.mem.free_temp(res)
                 self.mem.free_temp(a_copy)
-            elif op in ('/', '%'):
-                is_zero = self.mem.alloc_temp()
-                self.set_val(is_zero, 1)
-                t_copy = self.mem.alloc_temp()
-                self.copy(temp, t_copy)
-                self.move_to(t_copy)
-                self._add('[-')
-                self.clear(is_zero)
-                self.move_to(t_copy)
-                self._add(']')
-                self.mem.free_temp(t_copy)
                 
-                self.move_to(is_zero)
-                self._add('[')
-                self.set_val(self.mem.get('__err_flag'), 1)
-                self.set_val(self.mem.get('__err_code'), 1)
-                err_msg = "Math Error: Divide by Zero\n"
-                for c in err_msg:
-                    char_val = ord(c)
-                    t_char = self.mem.alloc_temp()
-                    self.set_val(t_char, char_val)
-                    self.move_to(t_char)
-                    self._add('.')
-                    self.clear(t_char)
-                    self.mem.free_temp(t_char)
-                self.clear(is_zero)
-                self._add(']')
-                self.mem.free_temp(is_zero)
-                
-                res = self.mem.alloc_temp()
-                self.clear(res)
-                rem = self.mem.alloc_temp()
-                self.clear(rem)
-                x_copy = self.mem.alloc_temp()
-                self.clear(x_copy)
-                
-                self.move_to(dest_addr)
-                self._add('[-')
-                self.move_to(x_copy)
-                self._add('+')
-                self.move_to(dest_addr)
+                self.move_to(temp_exp)
                 self._add(']')
                 
-                self.move_to(x_copy)
-                self._add('[-')
-                self.move_to(rem)
-                self._add('+')
-                
-                t1 = self.mem.alloc_temp()
-                t2 = self.mem.alloc_temp()
-                self.copy(rem, t1)
-                
-                self.move_to(temp)
-                self._add('[-')
-                self.move_to(t1)
-                self._add('-')
-                self.move_to(t2)
-                self._add('+')
-                self.move_to(temp)
-                self._add(']')
-                
-                self.move_to(t2)
-                self._add('[-')
-                self.move_to(temp)
-                self._add('+')
-                self.move_to(t2)
-                self._add(']')
-                
-                is_eq = self.mem.alloc_temp()
-                self.set_val(is_eq, 1)
-                self.move_to(t1)
-                self._add('[-')
-                self.clear(is_eq)
-                self.move_to(t1)
-                self._add(']')
-                
-                self.move_to(is_eq)
-                self._add('[-')
-                self.move_to(res)
-                self._add('+')
-                self.clear(rem)
-                self.move_to(is_eq)
-                self._add(']')
-                
-                self.mem.free_temp(t1)
-                self.mem.free_temp(t2)
-                self.mem.free_temp(is_eq)
-                
-                self.move_to(x_copy)
-                self._add(']')
-                
-                if op == '/':
-                    self.copy(res, dest_addr)
-                else:
-                    self.copy(rem, dest_addr)
-                    
-                self.clear(res)
-                self.clear(rem)
-                self.clear(x_copy)
-                self.mem.free_temp(res)
-                self.mem.free_temp(rem)
-                self.mem.free_temp(x_copy)
-            self.mem.free_temp(temp)
-        elif node.data == 'pow_expr':
-            left = node.children[0]
-            op = node.children[1].value
-            right = node.children[2]
-            
-            temp_base = self.mem.alloc_temp()
-            self.eval_expr(left, temp_base)
-            temp_exp = self.mem.alloc_temp()
-            self.eval_expr(right, temp_exp)
-            
-            self.set_val(dest_addr, 1)
-            
-            self.move_to(temp_exp)
-            self._add('[-')
-            
-            res = self.mem.alloc_temp()
-            self.clear(res)
-            a_copy = self.mem.alloc_temp()
-            self.clear(a_copy)
-            
-            self.move_to(dest_addr)
-            self._add('[-')
-            self.move_to(a_copy)
-            self._add('+')
-            self.move_to(dest_addr)
-            self._add(']')
-            
-            self.move_to(a_copy)
-            self._add('[-')
-            self.copy(temp_base, res)
-            self.move_to(a_copy)
-            self._add(']')
-            
-            self.copy(res, dest_addr)
-            self.clear(res)
-            self.mem.free_temp(res)
-            self.mem.free_temp(a_copy)
-            
-            self.move_to(temp_exp)
-            self._add(']')
-            
-            self.clear(temp_base)
-            self.mem.free_temp(temp_base)
-            self.mem.free_temp(temp_exp)
+                self.clear(temp_base)
+                self.mem.free_temp(temp_base)
+                self.mem.free_temp(temp_exp)
+                idx += 2
         elif node.data == 'equality':
             left = node.children[0]
             op = node.children[1].value
